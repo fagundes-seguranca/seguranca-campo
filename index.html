@@ -351,6 +351,8 @@ input.lc-in{min-height:36px;padding:6px 9px;font-size:14px}
 .imp{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--az-cl);border-radius:12px;padding:12px;margin-top:16px}
 .imp b{display:inline-flex;align-items:center;gap:6px;color:var(--az)}.imp b svg.i{width:17px;height:17px}
 input.mini.dt{width:auto;min-height:38px;padding:5px 8px;font-size:14px}
+.zona-perigo{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;border:1.5px solid #f0c4c4;background:#fff7f7;border-radius:14px;padding:14px 16px;margin:6px 0 14px}
+.zona-perigo b{display:inline-flex;align-items:center;gap:6px;color:var(--err)}
 </style>
 </head>
 <body>
@@ -366,7 +368,7 @@ input.mini.dt{width:auto;min-height:38px;padding:5px 8px;font-size:14px}
    o servidor (Google Apps Script) confirma o recebimento.
    Perfis: LANÇADOR (só lança) e ADMINISTRADOR (vê tudo).
    ===================================================================== */
-const APP_VERSION='3.2.0';
+const APP_VERSION='3.4.0';
 const TURNOS=['A','B','C','ADM'];
 const PERFIS=['LANÇADOR','ADMINISTRADOR'];
 
@@ -562,6 +564,7 @@ const isAdm=()=>S.user&&S.user.perfil==='ADMINISTRADOR';
 async function api(body,timeout=30000){
  if(window.DEMO_API)return window.DEMO_API(body);
  if(!S.cfg.apiUrl)throw new Error('Servidor não configurado');
+ body={...body,k:S.cfg.key||''};
  const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),timeout);
  try{const r=await fetch(S.cfg.apiUrl,{method:'POST',body:JSON.stringify(body),redirect:'follow',signal:ctl.signal});
   const tx=await r.text();let j;try{j=JSON.parse(tx);}catch(e){throw new Error('Resposta inválida do servidor (confira o endereço e o acesso "Qualquer pessoa")');}
@@ -569,7 +572,7 @@ async function api(body,timeout=30000){
  catch(e){if(e.name==='AbortError')throw new Error('Tempo esgotado');throw e;}
  finally{clearTimeout(t);}}
 const online=()=>window.DEMO_API?true:navigator.onLine;
-function paraEnvio(r){const o={...r};if(DOCS[r.tipo]&&!r.cancelado){try{o.planilhas=DOCS[r.tipo].planilhas(r);}catch(e){o.planilhas=null;}}return o;}
+function paraEnvio(r){const o={...r};if(!o.auth&&S.auth&&(isAdm()||(r.autor&&S.user&&r.autor.matricula===S.user.matricula)))o.auth=S.auth;if(DOCS[r.tipo]&&!r.cancelado){try{o.planilhas=DOCS[r.tipo].planilhas(r);}catch(e){o.planilhas=null;}}return o;}
 function heartbeat(){const pend=S.regs.filter(r=>r.status==='pendente');const porM={};pend.forEach(r=>{const m=r.autor&&r.autor.matricula||'?';porM[m]=(porM[m]||0)+1;});
  return {action:'heartbeat',deviceId:S.deviceId,matricula:S.user?S.user.matricula:'',nome:S.user?S.user.nome:'',pendentes:pend.length,
   seqsPendentes:pend.filter(r=>r.deviceId===S.deviceId).map(r=>r.seq).join(','),porMatricula:porM,ultimoSeq:S.seq,versao:APP_VERSION,ua:navigator.userAgent.slice(0,140)};}
@@ -587,7 +590,7 @@ async function sincronizar(manual){
    const acks=new Set(res.acks||[]),rej={};(res.rejeitados||[]).forEach(x=>rej[x.id]=x.motivo);
    for(const r of lote){
     if(acks.has(r.id)){r.status=r.cancelado?'cancelado':'sincronizado';r.sincronizadoEm=Date.now();r.erro='';delete r.auth;await putReg(r);}
-    else if(rej[r.id]){r.status='rejeitado';r.erro=rej[r.id];delete r.auth;await putReg(r);}}}
+    else if(rej[r.id]){r.status='rejeitado';r.erro=rej[r.id];await putReg(r);}}}
   await recarregarRegs();
   await api(heartbeat());
   if(S.user&&S.user.matricula!=='admin'){try{const mr=await api({action:'meus',matricula:S.user.matricula,auth:S.auth});if(Array.isArray(mr.regs)){S.meusSrv={m:S.user.matricula,regs:mr.regs};await setMeta('meusSrv',S.meusSrv);}}catch(e){}}
@@ -600,7 +603,7 @@ async function sincronizar(manual){
   S.lastSync=Date.now();await setMeta('lastSync',S.lastSync);S.lastErr='';
   await podar();
   if(manual)toast(pend.length?`${pend.length} lançamento(s) enviado(s) e confirmado(s)`:'Tudo sincronizado','ok');
- }catch(e){S.lastErr=e.message;if(manual)toast('Não sincronizou: '+e.message+' — nada foi perdido.','erro');}
+ }catch(e){S.lastErr=e.message;if(manual||/Chave de acesso/.test(e.message))toast('Não sincronizou: '+e.message+' — nada foi perdido.','erro');}
  finally{S.syncing=false;renderStatus();if(!S.user){const m=$('#lgMat');if(!m||(!m.value&&!$('#lgSenha').value))render();}else if(['lancar','meus'].includes(S.tela)&&!S.verId)render();}}
 function mesclarCadastroPendente(lista){const m=new Map(lista.map(p=>[p.matricula,p]));
  S.regs.filter(r=>r.tipo==='CADASTRO'&&r.status==='pendente').sort((a,b)=>a.seq-b.seq).forEach(r=>(r.dados.pessoas||[]).forEach(p=>m.set(p.matricula,{...m.get(p.matricula),...p,hash:p.hash||(m.get(p.matricula)||{}).hash})));
@@ -682,6 +685,7 @@ function vSetup(){
  <div class="lg-form"><div class="login"><h2>Configurar aparelho</h2>
   <p class="muted">Cole o endereço do servidor (URL do Apps Script terminada em <b>/exec</b>). Normalmente ele já vem no link enviado pelo administrador.</p>
   <div class="campo"><label>Endereço do servidor</label><input id="stUrl" value="${h(S.cfg.apiUrl)}" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></div>
+  <div class="campo"><label>Chave de acesso</label><input id="stKey" value="${h(S.cfg.key||'')}" autocomplete="off" placeholder="Vem no link de instalação (APP_KEY)"></div>
   <div class="campo"><label>Unidade / obra</label><input id="stUn" value="${h(S.cfg.unidade)}"></div>
   ${S.cfg.apiUrl?`<div class="campo"><label>Senha do administrador geral (para alterar)</label><input id="stPin" type="password" autocomplete="off"></div>`:''}
   <button class="btn bl lg-btn" data-act="salvar-setup">Salvar e baixar cadastro</button>
@@ -741,7 +745,7 @@ function vForm(){
  ${D.secoes.map(s=>`<div class="sec"><div class="sec-t">${s.t}${s.lado&&D.secoes.some(x=>x.lado==='Verso')?`<span class="lado ${s.lado==='Verso'?'v':''}">${s.lado}</span>`:''}</div><div class="sec-b">${s.c.map(f=>f.g?`<div class="grid2">${f.g.map(x=>campoHTML(x,dados)).join('')}</div>`:campoHTML(f,dados)).join('')}</div></div>`).join('')}
  <div class="barra-acoes"><button class="btn sec" data-act="cancelar-form">Cancelar</button><button class="btn vd" data-act="salvar-form">${ic('save')} Salvar lançamento</button></div>`;}
 const SC='spellcheck="true" lang="pt-BR" autocapitalize="sentences" autocorrect="on"';
-const CORRECOES={nao:'não',entao:'então',tambem:'também',ate:'até',voce:'você',voces:'vocês',area:'área',areas:'áreas',acao:'ação',acoes:'ações',condicao:'condição',condicoes:'condições',protecao:'proteção',oculos:'óculos',seguranca:'segurança',inseguranca:'insegurança',veiculo:'veículo',veiculos:'veículos',caminhao:'caminhão',caminhoes:'caminhões',inspecao:'inspeção',manutencao:'manutenção',sinalizacao:'sinalização',iluminacao:'iluminação',informacao:'informação',orientacao:'orientação',operacao:'operação',producao:'produção',obrigatorio:'obrigatório',obrigatoria:'obrigatória',necessario:'necessário',necessaria:'necessária',proximo:'próximo',proxima:'próxima',possivel:'possível',impossivel:'impossível',varios:'vários',varias:'várias',numero:'número',rapido:'rápido',rapida:'rápida',maquina:'máquina',maquinas:'máquinas',mecanico:'mecânico',eletrico:'elétrico',eletrica:'elétrica',tecnico:'técnico',tecnica:'técnica',funcionario:'funcionário',funcionarios:'funcionários',solucao:'solução',situacao:'situação',atencao:'atenção',instalacao:'instalação',utilizacao:'utilização',execucao:'execução',verificacao:'verificação',observacao:'observação',observacoes:'observações',correcao:'correção',ja:'já',so:'só',tambem:'também',agua:'água',oleo:'óleo',pneu:'pneu',pratico:'prático',critico:'crítico',critica:'crítica',historico:'histórico',horario:'horário',transito:'trânsito',patio:'pátio',rampa:'rampa',esteril:'estéril',basculamento:'basculamento',combustivel:'combustível',equipaemnto:'equipamento',equipamneto:'equipamento',colaboardor:'colaborador',colaborardor:'colaborador',segurnaça:'segurança',sinalizaçao:'sinalização',condiçao:'condição',açao:'ação',inspeçao:'inspeção',manutençao:'manutenção',protecão:'proteção',nescessario:'necessário',necesario:'necessário',excesso:'excesso',exesso:'excesso',concerto:'conserto'};
+const CORRECOES={lancamento:'lançamento',lancamentos:'lançamentos',lancado:'lançado',lancada:'lançada',duplicidade:'duplicidade',frequencia:'frequência',distancia:'distância',emergencia:'emergência',ocorrencia:'ocorrência',ocorrencias:'ocorrências',providencia:'providência',providencias:'providências',experiencia:'experiência',consequencia:'consequência',sequencia:'sequência',pressao:'pressão',direcao:'direção',atencão:'atenção',inclinacao:'inclinação',escavacao:'escavação',drenagem:'drenagem',nivel:'nível',pe:'pé',pes:'pés',maos:'mãos',mao:'mão',cinto:'cinto',capacete:'capacete',luva:'luva',protetor:'protetor',auricular:'auricular',refletivo:'refletivo',colete:'colete',buzina:'buzina',re:'ré',velocidade:'velocidade',excessiva:'excessiva',pista:'pista',britador:'britador',operacional:'operacional',nao:'não',entao:'então',tambem:'também',ate:'até',voce:'você',voces:'vocês',area:'área',areas:'áreas',acao:'ação',acoes:'ações',condicao:'condição',condicoes:'condições',protecao:'proteção',oculos:'óculos',seguranca:'segurança',inseguranca:'insegurança',veiculo:'veículo',veiculos:'veículos',caminhao:'caminhão',caminhoes:'caminhões',inspecao:'inspeção',manutencao:'manutenção',sinalizacao:'sinalização',iluminacao:'iluminação',informacao:'informação',orientacao:'orientação',operacao:'operação',producao:'produção',obrigatorio:'obrigatório',obrigatoria:'obrigatória',necessario:'necessário',necessaria:'necessária',proximo:'próximo',proxima:'próxima',possivel:'possível',impossivel:'impossível',varios:'vários',varias:'várias',numero:'número',rapido:'rápido',rapida:'rápida',maquina:'máquina',maquinas:'máquinas',mecanico:'mecânico',eletrico:'elétrico',eletrica:'elétrica',tecnico:'técnico',tecnica:'técnica',funcionario:'funcionário',funcionarios:'funcionários',solucao:'solução',situacao:'situação',atencao:'atenção',instalacao:'instalação',utilizacao:'utilização',execucao:'execução',verificacao:'verificação',observacao:'observação',observacoes:'observações',correcao:'correção',ja:'já',so:'só',tambem:'também',agua:'água',oleo:'óleo',pneu:'pneu',pratico:'prático',critico:'crítico',critica:'crítica',historico:'histórico',horario:'horário',transito:'trânsito',patio:'pátio',rampa:'rampa',esteril:'estéril',basculamento:'basculamento',combustivel:'combustível',equipaemnto:'equipamento',equipamneto:'equipamento',colaboardor:'colaborador',colaborardor:'colaborador',segurnaça:'segurança',sinalizaçao:'sinalização',condiçao:'condição',açao:'ação',inspeçao:'inspeção',manutençao:'manutenção',protecão:'proteção',nescessario:'necessário',necesario:'necessário',excesso:'excesso',exesso:'excesso',concerto:'conserto'};
 function corrigirTexto(t){if(!t)return t;let x=String(t).replace(/[ \t]{2,}/g,' ').replace(/ +([,.;:!?])/g,'$1').replace(/([,;:!?])(?=[A-Za-zÀ-ú])/g,'$1 ');
  x=x.replace(/[A-Za-zÀ-ú]+/g,w=>{const c=CORRECOES[w.toLowerCase()];if(!c||c===w.toLowerCase())return w;return w===w.toUpperCase()&&w.length>1?c.toUpperCase():w[0]===w[0].toUpperCase()?c[0].toUpperCase()+c.slice(1):c;});
  return x.replace(/(^\s*|[.!?]\s+)([a-zà-ú])/g,(m,a,b)=>a+b.toUpperCase()).trim();}
@@ -813,14 +817,14 @@ async function salvarForm(){
  try{
   if(editId){const r=S.regs.find(x=>x.id===editId);if(!r||r.status!=='pendente'){toast('Este lançamento já foi enviado e não pode mais ser alterado.','erro');return;}
    Object.assign(r,{dados,resumo:D.resumo(dados),dataDoc:dados[D.dataKey],atualizadoEm:Date.now()});await putReg(r);}
-  else{const r={id:uuid(),tipo,status:'pendente',deviceId:S.deviceId,criadoEm:Date.now(),autor:{matricula:S.user.matricula,nome:S.user.nome,funcao:S.user.funcao,turno:S.user.turno},dados,resumo:D.resumo(dados),dataDoc:dados[D.dataKey]};
+  else{const r={id:uuid(),tipo,status:'pendente',deviceId:S.deviceId,criadoEm:Date.now(),auth:S.auth,autor:{matricula:S.user.matricula,nome:S.user.nome,funcao:S.user.funcao,turno:S.user.turno},dados,resumo:D.resumo(dados),dataDoc:dados[D.dataKey]};
    await novoRegistro(r,D.sigla);S.rascunho=null;await setMeta('rascunho',null);}
  }catch(e){toast('ERRO ao gravar no aparelho: '+e.message+'. Não feche o app; tente de novo.','erro');return;}
  S.form=null;await recarregarRegs();
  toast('Salvo no aparelho. '+(online()?'Enviando…':'Será enviado quando houver internet.'),'ok');ir(isAdm()?'lancar':'meus');sincronizar();}
 
 /* ------------------------------ Meus envios / detalhe ------------------------------ */
-function itemHTML(r,remoto){const D=DOCS[r.tipo]||{ic:'users',cor:'var(--cz)',nome:r.tipo==='TRATATIVA'?'Tratativa de ação':'Alteração de cadastro'};
+function itemHTML(r,remoto){const D=DOCS[r.tipo]||{ic:r.tipo==='EXCLUSAO'?'trash':'users',cor:'var(--cz)',nome:{TRATATIVA:'Tratativa de ação',EXCLUSAO:'Exclusão de registro',METAS:'Alteração de metas',LOCAIS:'Áreas e frentes'}[r.tipo]||'Alteração de cadastro'};
  const st=remoto?'sincronizado':r.status,lab={pendente:'Aguardando envio',sincronizado:'Enviado',rejeitado:'Recusado',cancelado:'Cancelado'}[st];
  return `<div class="item" style="--c:${D.cor}" data-act="ver" data-id="${r.id}" ${remoto?'data-r="1"':''}><span class="di">${ic(D.ic)}</span><div class="f1"><div class="t">${h(D.curto||D.nome)} <span class="tiny">${h(r.numero)}</span></div><div class="s">${fData(r.dataDoc)||fDT(r.criadoEm)} · ${h(r.autor?.nome||'')}</div><div class="s">${h(r.resumo||'')}</div>${r.erro?`<div class="s" style="color:var(--err)">${h(r.erro)}</div>`:''}</div><span class="st ${st}">${lab}</span></div>`;}
 function vMeus(){
@@ -852,13 +856,14 @@ function vDetalhe(){
  ${ac&&r.remoto&&isAdm()?`<div class="info" style="margin:12px 0 0">${ic('flag')} <b>Ação:</b> ${h(ac.oque)} · ${statusAcao(ac,tr).lab}${tr?` — ${h(tr.obs||'')} (${h(tr.por||'')}, ${fDT(tr.c)})`:''}${statusAcao(ac,tr).k!=='concluida'?`<div style="margin-top:8px"><button class="btn sm" data-act="concluir" data-id="${r.id}">${ic('check')} Registrar conclusão</button></div>`:''}</div>`:''}</div>
  ${corpo}
  ${!r.remoto&&r.status==='pendente'&&!r.cancelado&&D?`<div class="row"><button class="btn sec f1" data-act="editar" data-id="${r.id}">Editar</button><button class="btn perigo f1" data-act="cancelar-reg" data-id="${r.id}">Cancelar lançamento</button></div>`:''}
- ${!r.remoto&&r.status==='rejeitado'?`<button class="btn perigo bl" data-act="excluir-rej" data-id="${r.id}">Remover do aparelho</button>`:''}`;}
+ ${r.remoto&&isAdm()&&D?`<div class="zona-perigo"><div><b>${ic('trash')} Excluir registro</b><div class="tiny">Remove este documento do painel, do ranking e das abas da planilha. Fica registrado na aba Exclusões, com o motivo.</div></div><button class="btn perigo" data-act="excluir-srv" data-id="${r.id}">${ic('trash')} Excluir registro</button></div>`:''}
+ ${!r.remoto&&r.status==='rejeitado'?`<div class="row"><button class="btn f1" data-act="reenviar" data-id="${r.id}">${ic('sync')} Reenviar</button><button class="btn perigo f1" data-act="excluir-rej" data-id="${r.id}">Remover do aparelho</button></div>`:''}`;}
 
 /* ------------------------------ Backup ------------------------------ */
 async function exportar(){
  const regs=S.regs.filter(r=>r.status!=='sincronizado'&&r.status!=='cancelado');
  if(!regs.length){toast('Não há lançamentos pendentes para backup.');return;}
- const data={app:'fagundes-seguranca',versao:APP_VERSION,deviceId:S.deviceId,exportadoEm:new Date().toISOString(),usuario:S.user&&{matricula:S.user.matricula,nome:S.user.nome},registros:regs.map(r=>{const o={...r};delete o.auth;return o;})};
+ const data={app:'fagundes-seguranca',versao:APP_VERSION,deviceId:S.deviceId,exportadoEm:new Date().toISOString(),usuario:S.user&&{matricula:S.user.matricula,nome:S.user.nome},registros:regs.map(r=>({...r}))};
  const d=new Date(),nome=`backup_${S.user?S.user.matricula:'aparelho'}_${isoD(d)}_${pad(d.getHours())}${pad(d.getMinutes())}.json`;
  const blob=new Blob([JSON.stringify(data)],{type:'application/json'}),file=new File([blob],nome,{type:'application/json'});
  try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Backup Segurança em Campo',text:`${regs.length} lançamento(s) pendente(s)`});return;}}catch(e){if(e.name==='AbortError')return;}
@@ -900,7 +905,8 @@ function filtrosHTML(opts={}){
  <span class="tiny f1" style="text-align:right">${difDias(a,b)+1} dia(s)${S.central?` · atualizado ${tempo(S.central.geradoEm)}`:''}</span>
  <button class="btn sm" data-act="central-atualizar">${ic('sync')} Atualizar</button></div>`;}
 function semDados(){return `<div class="card vazio">${ic('chart')}<div><b>Ainda sem dados do servidor</b></div><p class="muted">Toque em Atualizar com internet para baixar os lançamentos.</p><button class="btn" data-act="central-atualizar">${ic('sync')} Atualizar agora</button></div>`;}
-const docsDoServidor=()=>(S.central?.registros||[]).filter(r=>DOCS[r.tipo]&&r.status!=='CANCELADO');
+const excluidosPend=()=>new Set(S.regs.filter(r=>r.tipo==='EXCLUSAO').map(r=>r.dados.ref));
+const docsDoServidor=()=>{const ex=excluidosPend();return (S.central?.registros||[]).filter(r=>DOCS[r.tipo]&&r.status!=='CANCELADO'&&!ex.has(r.id));};
 function filtrados(a,b,tipo){return docsDoServidor().filter(r=>r.d>=a&&r.d<=b&&(!S.fTurno||r.turno===S.fTurno)&&(tipo===undefined?(!S.fTipo||r.tipo===S.fTipo):(!tipo||r.tipo===tipo)));}
 function tratativaDe(id){let t=null;(S.central?.registros||[]).forEach(r=>{if(r.tipo==='TRATATIVA'&&r.dados&&r.dados.ref===id&&(!t||r.c>t.c))t={...r.dados,c:r.c,por:r.nome};});
  S.regs.forEach(r=>{if(r.tipo==='TRATATIVA'&&r.dados.ref===id&&(!t||r.criadoEm>t.c))t={...r.dados,c:r.criadoEm,por:r.autor.nome};});return t;}
@@ -1169,8 +1175,8 @@ function vRegistros(){
  return `${filtrosHTML({tipo:1})}
  ${locais.length?`<div class="aviso">${ic('clock')}<div>${locais.length} lançamento(s) deste aparelho ainda aguardam envio. <button class="btn ghost sm" data-act="nav" data-to="meus">Ver</button></div></div>`:''}
  <div class="row" style="margin-bottom:12px"><input id="busca" class="f1" placeholder="Buscar por colaborador, número, local…" value="${h(S.busca)}" autocomplete="off"><span class="tiny">${l.length} documento(s)</span>${S.central.planilhaUrl?`<a class="btn sec sm" href="${h(S.central.planilhaUrl)}" target="_blank" rel="noopener">${ic('link')} Abrir planilha</a>`:''}</div>
- <div class="card p0"><div class="tbw" style="max-height:none"><table class="tb"><tr><th>Data</th><th>Documento</th><th>Nº</th><th>Colaborador</th><th>Turno</th><th>Resumo</th></tr>
- ${l.slice(0,300).map(r=>`<tr class="cl" data-act="ver" data-id="${r.id}" data-r="1"><td>${fData(r.d)}</td><td><span class="st" style="background:color-mix(in srgb,${DOCS[r.tipo].hex} 15%,#fff);color:#222">${DOCS[r.tipo].sigla}</span></td><td class="tiny">${h(r.n)}</td><td>${h(r.nome)}</td><td>${h(r.turno)}</td><td class="muted">${h(DOCS[r.tipo].resumo(r.dados||{}))}</td></tr>`).join('')||`<tr><td colspan="6" class="muted" style="padding:20px">Nenhum lançamento no filtro.</td></tr>`}</table></div></div>
+ <div class="card p0"><div class="tbw" style="max-height:none"><table class="tb"><tr><th>Data</th><th>Documento</th><th>Nº</th><th>Colaborador</th><th>Turno</th><th>Resumo</th><th></th></tr>
+ ${l.slice(0,300).map(r=>`<tr class="cl" data-act="ver" data-id="${r.id}" data-r="1"><td>${fData(r.d)}</td><td><span class="st" style="background:color-mix(in srgb,${DOCS[r.tipo].hex} 15%,#fff);color:#222">${DOCS[r.tipo].sigla}</span></td><td class="tiny">${h(r.n)}</td><td>${h(r.nome)}</td><td>${h(r.turno)}</td><td class="muted">${h(DOCS[r.tipo].resumo(r.dados||{}))}</td><td><button class="btn ghost sm" style="color:var(--err)" title="Excluir registro" data-act="excluir-srv" data-id="${r.id}">${ic('trash')}</button></td></tr>`).join('')||`<tr><td colspan="7" class="muted" style="padding:20px">Nenhum lançamento no filtro.</td></tr>`}</table></div></div>
  ${l.length>300?'<p class="tiny">Mostrando os 300 mais recentes. Use a planilha para o histórico completo.</p>':''}`;}
 
 /* ------------------------------ Plano de ação ------------------------------ */
@@ -1185,6 +1191,21 @@ function vAcoes(){
  <div class="tabs">${[['abertas','Em aberto'],['vencida','Vencidas'],['concluida','Concluídas'],['todas','Todas']].map(([k,lb])=>`<button class="${f===k?'at':''}" data-act="acfiltro" data-f="${k}">${lb}</button>`).join('')}</div>
  <div class="card p0"><div class="tbw" style="max-height:none"><table class="tb"><tr><th>Situação</th><th>O que fazer</th><th>Responsável</th><th>Prazo</th><th>Origem</th><th></th></tr>
  ${l.map(x=>`<tr><td><span class="st ${x.st.k}">${x.st.lab}</span></td><td>${h(x.ac.oque)}<div class="tiny">${h(x.ac.local)}</div>${x.tr?`<div class="tiny" style="color:var(--ok)">✔ ${h(x.tr.obs||'Concluída')} — ${h(x.tr.por||'')}</div>`:''}</td><td>${h(x.ac.resp||'—')}</td><td>${fData(x.ac.prazo)||'—'}</td><td class="tiny"><a href="#" data-act="ver" data-id="${x.r.id}" data-r="1">${DOCS[x.r.tipo].sigla} ${h(x.r.n)}</a><br>${h(x.r.nome)}</td><td>${x.st.k!=='concluida'?`<button class="btn sm" data-act="concluir" data-id="${x.r.id}">${ic('check')} Concluir</button>`:''}</td></tr>`).join('')||`<tr><td colspan="6" class="muted" style="padding:20px">Nenhuma ação neste filtro.</td></tr>`}</table></div></div>`;}
+function excluirRegistroSrv(id){
+ const r=(S.central?.registros||[]).find(x=>x.id===id);if(!r)return;const D=DOCS[r.tipo];
+ modal(`<h2 style="color:var(--err)">${ic('trash')} Excluir registro</h2>
+  <div class="card" style="margin:0 0 12px;padding:12px"><b>${h(D.nome)}</b><div class="muted">${h(r.n)} · ${fData(r.d)} · ${h(r.nome)}</div><div class="tiny">${h(D.resumo(r.dados||{}))}</div></div>
+  <div class="campo"><label>Motivo da exclusão <b class="req">*</b></label><textarea id="exMotivo" rows="3" ${SC} placeholder="Ex.: lançamento de teste / lançado em duplicidade / preenchido errado"></textarea></div>
+  <div class="aviso" style="margin-bottom:12px">${ic('alert')}<div>O documento sai do painel, do ranking, das metas e das abas da planilha. Essa ação não pode ser desfeita pelo app.</div></div>
+  <div class="row"><button class="btn sec f1" data-m="0">Cancelar</button><button class="btn f1" style="background:var(--err)" data-m="1">${ic('trash')} Excluir</button></div>`,async(v,m)=>{
+  if(v!=='1'){m.remove();return;}
+  const motivo=corrigirTexto($('#exMotivo').value.trim());if(motivo.length<5){toast('Informe o motivo da exclusão','erro');return;}m.remove();
+  const rec={id:uuid(),tipo:'EXCLUSAO',status:'pendente',deviceId:S.deviceId,criadoEm:Date.now(),autor:{matricula:S.user.matricula,nome:S.user.nome,funcao:S.user.funcao,turno:S.user.turno},
+   dados:{ref:id,numero:r.n,documento:r.tipo,motivo},resumo:`Exclusão de ${r.n}`,dataDoc:hoje(),auth:S.auth};
+  rec.planilhas={'Exclusões':[{'Excluído em':new Date().toISOString(),'Excluído por':S.user.nome,'Documento':D.nome,'Nº':r.n,'Data do documento':r.d,'Lançado por':r.nome,'Matrícula':r.m,'Motivo':motivo,'ID do documento':id}]};
+  await novoRegistro(rec,'EXC');await recarregarRegs();
+  S.central.registros=S.central.registros.filter(x=>x.id!==id);await setMeta('central',S.central);
+  S.verId=null;S.verRemoto=null;toast(`Registro ${r.n} excluído`,'ok');render();sincronizar();});}
 function concluirAcao(id){
  const r=(S.central?.registros||[]).find(x=>x.id===id);if(!r)return;
  modal(`<h2>Registrar conclusão</h2><p class="muted">${h(DOCS[r.tipo].sigla)} ${h(r.n)} · ${h((DOCS[r.tipo].acao(r.dados)||{}).oque||'')}</p>
@@ -1339,12 +1360,13 @@ function vMais(){return `<h1>Mais opções</h1><p class="sub">Áreas administrat
  ${[['locais','Áreas e frentes','Locais padronizados usados nos relatórios','map'],['metas','Metas','Quantidade de lançamentos por semana e por mês','target'],['acoes','Plano de ação','Ações das inspeções e relatos','flag'],['registros','Lançamentos','Todos os documentos recebidos no servidor','list'],['cadastro','Cadastro de colaboradores','Pessoas, perfis de acesso e senhas','users'],['meus','Lançamentos neste aparelho','Fila de envio deste celular','clock'],['config','Configurações','Servidor, aparelho, backup e link de instalação','gear']].map(([k,t,d,i])=>`<button class="doc" style="--c:var(--az);width:100%;margin-bottom:10px" data-act="nav" data-to="${k}"><span class="di">${ic(i)}</span><span class="f1"><b>${t}</b><small>${d}</small></span><span class="seta">${ic('right')}</span></button>`).join('')}`;}
 function vConfig(){
  const tot=S.regs.length,pend=S.regs.filter(r=>r.status==='pendente').length;
- const base=location.href.split(/[?#]/)[0],link=S.cfg.apiUrl?`${base}?s=${encodeURIComponent(S.cfg.apiUrl)}`:'';
+ const base=location.href.split(/[?#]/)[0],link=S.cfg.apiUrl?`${base}?s=${encodeURIComponent(S.cfg.apiUrl)}${S.cfg.key?`&k=${encodeURIComponent(S.cfg.key)}`:''}`:'';
  return `<div class="grid-p"><div class="card c6"><h2>Servidor</h2>
   <div class="campo"><label>Endereço do servidor (URL /exec)</label><input id="cfgUrl" value="${h(S.cfg.apiUrl)}" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></div>
+  <div class="campo"><label>Chave de acesso (APP_KEY)</label><input id="cfgKey" value="${h(S.cfg.key||'')}" autocomplete="off"></div>
   <div class="campo"><label>Unidade / obra</label><input id="cfgUn" value="${h(S.cfg.unidade)}"></div>
   <div class="row"><button class="btn f1" data-act="cfg-salvar">${ic('save')} Salvar</button><button class="btn sec f1" data-act="cfg-testar">Testar conexão</button></div>
-  ${link?`<div class="campo" style="margin-top:16px"><label>Link de instalação para a equipe</label><input readonly value="${h(link)}" id="lnk"><div class="row" style="margin-top:8px"><button class="btn sec sm" data-act="copiar-link">${ic('link')} Copiar link</button><span class="tiny">Quem abrir este link já fica com o servidor configurado.</span></div></div>`:''}</div>
+  ${link?`<div class="campo" style="margin-top:16px"><label>Link de instalação para a equipe</label><input readonly value="${h(link)}" id="lnk"><div class="row" style="margin-top:8px"><button class="btn sec sm" data-act="copiar-link">${ic('link')} Copiar link</button><span class="tiny">Quem abrir este link já fica com o servidor e a chave configurados. Envie só para a equipe.</span></div></div>`:''}</div>
  <div class="card c6"><h2>Este aparelho</h2><table class="tb">
   <tr><td>Usuário</td><td><b>${h(S.user.nome)}</b> · ${h(S.user.perfil)}</td></tr>
   <tr><td>Código do aparelho</td><td><b>${S.deviceId.slice(0,4).toUpperCase()}</b></td></tr>
@@ -1373,7 +1395,9 @@ const ACOES={
  'salvar-setup':async()=>{const u=$('#stUrl').value.trim();
   if(S.cfg.apiUrl&&u!==S.cfg.apiUrl){const pin=$('#stPin')?.value||'';const hs=await hashSenha('admin',pin);let ok=S.cfg.masterHash&&S.cfg.masterHash===hs;
    if(!ok&&online()){try{ok=(await api({action:'login',pin})).ok;}catch(e){}}if(!ok){toast('Para alterar o servidor informe a senha do administrador geral','erro');return;}}
-  S.cfg.apiUrl=u;S.cfg.unidade=$('#stUn').value.trim();await setMeta('cfg',S.cfg);S.setup=false;toast('Aparelho configurado. Baixando cadastro…','ok');render();await sincronizar(true);render();},
+  S.cfg.apiUrl=u;S.cfg.key=$('#stKey').value.trim();S.cfg.unidade=$('#stUn').value.trim();
+  try{const pg=await api({action:'ping'});if(pg.chave&&!pg.chaveOk){toast('Chave de acesso incorreta. Confira a APP_KEY no Apps Script.','erro');return;}}catch(e){toast('Não consegui falar com o servidor: '+e.message,'erro');return;}
+  await setMeta('cfg',S.cfg);S.setup=false;toast('Aparelho configurado. Baixando cadastro…','ok');render();await sincronizar(true);render();},
  'menu-user':()=>modal(`<div class="row" style="margin-bottom:14px"><span class="av">${iniciais(S.user.nome)}</span><div class="f1"><b>${h(S.user.nome)}</b><div class="muted">${h(S.user.funcao||'')} · Turno ${h(S.user.turno||'—')}</div><div class="tiny">${h(S.user.perfil)}</div></div></div>
   <button class="btn sec bl" data-m="sync" style="margin-bottom:8px">${ic('sync')} Sincronizar agora</button>${!isAdm()?`<button class="btn sec bl" data-m="meus" style="margin-bottom:8px">${ic('list')} Meus envios</button>`:''}<button class="btn perigo bl" data-m="sair">${ic('out')} Sair</button>`,(v,m)=>{m.remove();if(v==='sair')sair();if(v==='sync')sincronizar(true);if(v==='meus')ir('meus');}),
  'sync':()=>sincronizar(true),
@@ -1391,8 +1415,10 @@ const ACOES={
  'voltar':()=>{S.verId=null;S.verRemoto=null;render();},
  'editar':el=>{const r=S.regs.find(x=>x.id===el.dataset.id);if(r&&r.status==='pendente'){S.verId=null;abrirForm(r.tipo,r);}},
  'cancelar-reg':async el=>{const r=S.regs.find(x=>x.id===el.dataset.id);if(!r||r.status!=='pendente')return;if(!await confirmar('Cancelar este lançamento? Ele será registrado como CANCELADO no servidor (não some sem rastro).','Cancelar lançamento'))return;r.cancelado=true;r.resumo='[CANCELADO] '+(r.resumo||'');await putReg(r);await recarregarRegs();S.verId=null;render();sincronizar();},
+ 'reenviar':async el=>{const r=S.regs.find(x=>x.id===el.dataset.id);if(!r)return;if(!isAdm()&&r.autor?.matricula!==S.user.matricula){toast('Só o próprio autor ou um administrador pode reenviar','erro');return;}r.status='pendente';r.erro='';r.auth=S.auth;await putReg(r);await recarregarRegs();S.verId=null;render();sincronizar(true);},
  'excluir-rej':async el=>{if(!await confirmar('Remover este lançamento recusado do aparelho?','Remover'))return;await delReg(el.dataset.id);await recarregarRegs();S.verId=null;render();},
  'concluir':el=>concluirAcao(el.dataset.id),
+ 'excluir-srv':el=>excluirRegistroSrv(el.dataset.id),
  'ptipo':el=>{S.ptipo=el.dataset.t;render();},
  'lc-add':()=>lcAdicionar([{nome:$('#lcNome').value,tipo:(document.querySelector('input[name=lcTipo]:checked')||{}).value}]),
  'lc-lote':()=>lcAdicionar($('#lcLote').value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(l=>{const c=l.split(/\t|;/).map(x=>x.trim());return c.length>1?{tipo:TIPOS_LOCAL.find(t=>t.toLowerCase()===c[0].toLowerCase())||'Frente',nome:c[1]}:{nome:c[0],tipo:'Frente'};})),
@@ -1414,7 +1440,7 @@ const ACOES={
  'cad-limpar':()=>{S.cadEdit=null;render();},
  'cad-editar':el=>{const p=S.cadastro.find(x=>x.matricula===el.dataset.m);S.cadEdit={...p,_ed:true};render();window.scrollTo(0,0);},
  'cad-lote':()=>cadLote(),
- 'cfg-salvar':async()=>{S.cfg.apiUrl=$('#cfgUrl').value.trim();S.cfg.unidade=$('#cfgUn').value.trim();await setMeta('cfg',S.cfg);toast('Configuração salva','ok');sincronizar(true);render();},
+ 'cfg-salvar':async()=>{S.cfg.apiUrl=$('#cfgUrl').value.trim();S.cfg.key=$('#cfgKey').value.trim();S.cfg.unidade=$('#cfgUn').value.trim();await setMeta('cfg',S.cfg);toast('Configuração salva','ok');sincronizar(true);render();},
  'cfg-testar':async()=>{const u=$('#cfgUrl').value.trim();if(!u&&!window.DEMO_API){toast('Informe o endereço','erro');return;}const old=S.cfg.apiUrl;S.cfg.apiUrl=u;try{const r=await api({action:'ping'});toast('Conexão OK · servidor v'+(r.versao||'?'),'ok');}catch(e){toast('Falhou: '+e.message,'erro');}finally{S.cfg.apiUrl=old;}},
  'copiar-link':async()=>{try{await navigator.clipboard.writeText($('#lnk').value);toast('Link copiado','ok');}catch(e){$('#lnk').select();toast('Selecione e copie o link');}},
  'instalar':async()=>{if(!S.instalar)return;S.instalar.prompt();await S.instalar.userChoice;S.instalar=null;render();}
@@ -1446,7 +1472,7 @@ async function init(){
  try{
   S.deviceId=await getMeta('deviceId');if(!S.deviceId){S.deviceId=uuid();await setMeta('deviceId',S.deviceId);}
   S.cfg=Object.assign(S.cfg,await getMeta('cfg',{}));
-  try{const s=new URLSearchParams(location.search).get('s');if(s&&/^https:\/\//.test(s)&&!S.cfg.apiUrl){S.cfg.apiUrl=s;await setMeta('cfg',S.cfg);history.replaceState(null,'',location.pathname);}}catch(e){}
+  try{const q=new URLSearchParams(location.search),s=q.get('s'),k=q.get('k');let mud=false;if(s&&/^https:\/\//.test(s)&&(!S.cfg.apiUrl||S.cfg.apiUrl===s)){S.cfg.apiUrl=s;mud=true;}if(k&&(!S.cfg.key||S.cfg.apiUrl===s)){S.cfg.key=k;mud=true;}if(mud)await setMeta('cfg',S.cfg);if(s||k)history.replaceState(null,'',location.pathname);}catch(e){}
   S.user=await getMeta('user',null);S.auth=await getMeta('auth',null);S.cadastro=await getMeta('cadastro',[]);S.hist=await getMeta('hist',{});S.lastSync=await getMeta('lastSync',null);
   S.rascunho=await getMeta('rascunho',null);S.seq=await getMeta('seq',0);S.metas=await getMeta('metas',null);S.locais=await getMeta('locais',[]);S.meusSrv=await getMeta('meusSrv',null);
   if(window.DEMO_INIT)await window.DEMO_INIT();
