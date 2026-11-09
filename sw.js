@@ -1,5 +1,5 @@
 /* Service worker – mantém o app funcionando sem internet */
-const CACHE = 'fag-seguranca-v3.2.0';
+const CACHE = 'fag-seguranca-v3.4.0';
 const ARQUIVOS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './logo-branco.png', './logo-azul.png', './simbolo-branco.png', './simbolo-azul.png', './login.jpg', './modelo_colaboradores.xlsx', './modelo_areas_frentes.xlsx'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARQUIVOS)).then(() => self.skipWaiting()));
