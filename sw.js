@@ -1,8 +1,8 @@
 /* Service worker – mantém o app funcionando sem internet */
-const CACHE = 'fag-seguranca-v3.4.0';
+const CACHE = 'fag-seguranca-v3.4.1';
 const ARQUIVOS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './logo-branco.png', './logo-azul.png', './simbolo-branco.png', './simbolo-azul.png', './login.jpg', './modelo_colaboradores.xlsx', './modelo_areas_frentes.xlsx'];
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARQUIVOS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARQUIVOS.map(a => new Request(a, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
@@ -10,11 +10,23 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const u = new URL(e.request.url);
   if (e.request.method !== 'GET' || u.origin !== location.origin) return; // servidor (Apps Script) nunca passa pelo cache
+  const pagina = e.request.mode === 'navigate' || u.pathname.endsWith('/') || u.pathname.endsWith('.html');
+  if (pagina) {
+    // Página do app: com internet busca sempre a versão mais nova; sem internet usa a cópia guardada.
+    e.respondWith(
+      fetch(e.request, { cache: 'no-store' }).then(r => {
+        if (r && r.ok) { const cl = r.clone(); caches.open(CACHE).then(c => c.put('./index.html', cl)); }
+        return r;
+      }).catch(() => caches.match('./index.html').then(c => c || caches.match('./')))
+    );
+    return;
+  }
+  // Imagens e modelos: usa a cópia guardada e atualiza em segundo plano.
   e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(cache => {
     const rede = fetch(e.request).then(r => {
       if (r && r.ok) { const cl = r.clone(); caches.open(CACHE).then(c => c.put(e.request, cl)); }
       return r;
-    }).catch(() => cache || caches.match('./index.html'));
+    }).catch(() => cache);
     return cache || rede;
   }));
 });
