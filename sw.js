@@ -1,7 +1,7 @@
 /* Service worker – Segurança em Campo · Fagundes
    A página fica guardada no aparelho (abre na hora, mesmo sem internet).
    Versão nova só entra quando a pessoa toca em "Atualizar" ou fecha e abre o app. */
-const CACHE = 'fag-seguranca-v4.0.0';
+const CACHE = 'fag-seguranca-v4.1.0';
 const ARQUIVOS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './logo-branco.png', './logo-azul.png', './simbolo-branco.png', './simbolo-azul.png', './login.jpg', './modelo_colaboradores.xlsx', './modelo_areas_frentes.xlsx'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARQUIVOS.map(a => new Request(a, { cache: 'reload' })))));

@@ -12,7 +12,7 @@
   --az:#00379e;--az2:#0b4fc9;--az-cl:#e9effc;--az-esc:#00256b;--vd:#95d324;--vd-esc:#4f7d0a;--cz:#98989a;
   --bg:#eef1f6;--card:#fff;--tx:#141b2b;--tx2:#545d6f;--tx3:#8a91a0;--bd:#e2e6ee;--bd2:#cfd5e0;
   --ok:#1f8f3a;--warn:#c97a00;--err:#c93434;
-  --s1:#2552c0;--s2:#8ac620;--s3:#5f8ee0;--s4:#3f6e12;
+  --s1:#2552c0;--s2:#8ac620;--s3:#5f8ee0;--s4:#3f6e12;--s5:#0b2257;
   --r:14px;--sh:0 1px 2px rgba(16,30,60,.06),0 2px 8px rgba(16,30,60,.05);
 }
 *{box-sizing:border-box}
@@ -461,7 +461,7 @@ body[data-tema=escuro] .tema-bt{background:#1c2740}
  body[data-tema=escuro] aside{background:#0d1527!important;border-right:1px solid var(--bd)!important}}
 /* ================= v4.0 — novo visual Fagundes ================= */
 :root{--trilho:#e8edf5}
-body[data-tema=escuro]{--s1:#3a68d8;--s2:#6aa317;--s3:#6a92e4;--s4:#4f8414;--trilho:#24324f}
+body[data-tema=escuro]{--s1:#3a68d8;--s2:#6aa317;--s3:#6a92e4;--s4:#4f8414;--s5:#a9b6cc;--trilho:#24324f}
 h1,h2,.htit b,.sech{letter-spacing:-.2px}
 /* menu lateral com nomes */
 @media(min-width:980px){
@@ -592,6 +592,7 @@ body[data-tema=escuro] .av-ic.r{background:rgba(180,35,24,.22);color:#ff9b91}bod
 body[data-tema=escuro] :is(.av-i,.fprog,.seg2){background:var(--card)}
 body[data-tema=escuro] nav.bot{background:#111b30!important}
 body[data-tema=escuro] .c4-res b{color:#9fbcff}
+@media(min-width:980px){.ptabs{grid-template-columns:repeat(6,minmax(0,1fr))!important}}
 </style>
 </head>
 <body>
@@ -607,7 +608,7 @@ body[data-tema=escuro] .c4-res b{color:#9fbcff}
    o servidor (Google Apps Script) confirma o recebimento.
    Perfis: LANÇADOR (só lança) e ADMINISTRADOR (vê tudo).
    ===================================================================== */
-const APP_VERSION='4.0.0';
+const APP_VERSION='4.1.0';
 const TURNOS=['A','B','C','ADM'];
 const PERFIS=['LANÇADOR','ADMINISTRADOR'];
 
@@ -710,7 +711,7 @@ const colsCats=(cats,porCat)=>{const o={};cats.forEach(([,it])=>it.forEach(([k,n
 /* ------------------------------ Documentos ------------------------------ */
 function base(r){return {ini:{'Nº':r.numero},fim:{'Lançado por':r.autor.nome,'Matrícula':r.autor.matricula,'Função':r.autor.funcao,'Turno':r.autor.turno,'Criado em':new Date(r.criadoEm).toISOString(),'ID':r.id}};}
 const DOCS={
- INSPECAO:{nome:'Inspeção de Campo de Bolso',curto:'Inspeção de Campo',codigo:'R-01/015-03',sigla:'ICB',ic:'clip',cor:'var(--s1)',hex:'var(--s1)',desc:'Itens verificados, não conformidade e plano de ação',dataKey:'data',
+ INSPECAO:{nome:'Inspeção de Campo',curto:'Inspeção de Campo',codigo:'R-01/015-03',sigla:'ICB',ic:'clip',cor:'var(--s1)',hex:'var(--s1)',desc:'Itens verificados, não conformidade e plano de ação',dataKey:'data',
   secoes:[
    {t:'Identificação',lado:'Frente',c:[{k:'area',l:'Área',t:'local',req:1},{k:'data',l:'Data',t:'date',req:1,def:'hoje'},{k:'local',l:'Local',t:'local',req:1},{k:'respArea',l:'Responsável pela área',t:'pessoa',req:1},{k:'respInspecao',l:'Responsável pela inspeção',t:'pessoa',req:1,def:'eu'}]},
    {t:'Itens verificados',c:[{k:'itens',l:'Marque os itens verificados',t:'checks',req:1,opts:['Condições Operacionais','Sinalização','Política SGI','Procedimentos Operacionais','Indicadores','Check List','5S','EPI','APR','Documentos Produção (CDT, Parte Diária, Tablet)','Meio Ambiente','Cartão Plano de Saúde']}]},
@@ -753,9 +754,17 @@ const DOCS={
    {t:'Assinatura do encarregado',lado:'Verso',c:[{k:'encarregado',l:'Encarregado',t:'pessoa'},{k:'assinatura',l:'Assinatura do encarregado',t:'assinatura'},{k:'dataEncarregado',l:'Data',t:'date'}]}],
   resumo:d=>`${(d.tipos||[]).join(', ')} · ${d.local||''}`,
   acao:d=>d.medidasPrevCorr?{oque:d.medidasPrevCorr,resp:d.responsavel,prazo:d.prazo,feita:false,local:[d.local,d.area].filter(Boolean).join(' · ')}:null,
-  planilhas:r=>{const d=r.dados,b=base(r);return {'Relato de Desvios':[{...b.ini,'Tipo':(d.tipos||[]).join('; '),'Local da ocorrência':d.local,'Data':d.data,'Hora':d.hora,'Descrição':d.descricao,'Medidas usadas para solução':d.medidasUsadas,'Sugestões para melhoria':d.sugestoes,'Nome do relator':d.relator,'Área':d.area,'Medidas preventivas / corretivas':d.medidasPrevCorr,'Responsável':d.responsavel,'Prazo para solução':d.prazo,'Encarregado':d.encarregado,'Assinatura do encarregado':d.assinatura?'Assinado no app':'','Data (encarregado)':d.dataEncarregado,...b.fim}]};}}
+  planilhas:r=>{const d=r.dados,b=base(r);return {'Relato de Desvios':[{...b.ini,'Tipo':(d.tipos||[]).join('; '),'Local da ocorrência':d.local,'Data':d.data,'Hora':d.hora,'Descrição':d.descricao,'Medidas usadas para solução':d.medidasUsadas,'Sugestões para melhoria':d.sugestoes,'Nome do relator':d.relator,'Área':d.area,'Medidas preventivas / corretivas':d.medidasPrevCorr,'Responsável':d.responsavel,'Prazo para solução':d.prazo,'Encarregado':d.encarregado,'Assinatura do encarregado':d.assinatura?'Assinado no app':'','Data (encarregado)':d.dataEncarregado,...b.fim}]};}},
+ ORIENTACAO:{nome:'Orientação de Segurança – Processo Educacional',curto:'Orientação de Segurança',codigo:'R-01/018-09',sigla:'OS',ic:'shield',cor:'var(--s5)',hex:'var(--s5)',desc:'Comportamento de risco constatado e orientação dada ao colaborador',dataKey:'data',semMeta:1,
+  secoes:[
+   {t:'Colaborador e ocorrência',lado:'Frente',c:[{k:'colaborador',l:'Nome do colaborador',t:'pessoa',req:1},{g:[{k:'data',l:'Dia',t:'date',req:1,def:'hoje'},{k:'hora',l:'Horário',t:'time',req:1,def:'agora'}]},{k:'local',l:'Local (opcional)',t:'local'},{k:'situacao',l:'Situação — comportamento(s) de risco constatado(s)',t:'textarea',req:1}]},
+   {t:'Orientação',lado:'Frente',c:[{k:'orientacao',l:'Orientação dada ao colaborador',t:'textarea',req:1},{t:'html',html:'<div class="ajuda">Comportamento(s) este(s), que compromete(m) a sua Saúde e Segurança, bem como desatende(m) às Normas da Fagundes Construção e Mineração S.A.</div>'}]},
+   {t:'Assinaturas',lado:'Frente',c:[{k:'orientador',l:'Supervisão / SESMT / Instrutor Operacional',t:'pessoa',req:1,def:'eu'},{k:'assOrientador',l:'Assinatura – Supervisão / SESMT / Instrutor Operacional',t:'assinatura'},{k:'assColaborador',l:'Assinatura do colaborador',t:'assinatura'}]}],
+  resumo:d=>[String(d.colaborador||'').split(' – ')[0],d.local].filter(Boolean).join(' · '),
+  planilhas:r=>{const d=r.dados,b=base(r);return {'Orientação de Segurança':[{...b.ini,'Colaborador orientado':d.colaborador,'Data':d.data,'Hora':d.hora,'Local':d.local,'Situação':d.situacao,'Orientação':d.orientacao,'Supervisão / SESMT / Instrutor':d.orientador,'Assinatura do orientador':d.assOrientador?'Assinado no app':'','Assinatura do colaborador':d.assColaborador?'Assinado no app':'',...b.fim}]};}}
 };
 const TIPOS=Object.keys(DOCS);
+const TIPOS_META=TIPOS.filter(t=>!DOCS[t].semMeta);
 /* ------------------------------ Fotos ------------------------------ */
 const urlFoto=f=>f&&f.url?f.url:(f&&f.fid?'(aguardando envio)':'');
 function fotosDe(o,acc=[]){if(o&&typeof o==='object'){if(o.fid)acc.push(o);else Object.values(o).forEach(v=>fotosDe(v,acc));}return acc;}
@@ -953,7 +962,7 @@ function renderStatus(){const p=$('#pill');if(!p)return;const on=online();
 /* ------------------------------ Telas sem login ------------------------------ */
 function brandPanel(sub){return `<div class="lg-brand" style="background-image:linear-gradient(160deg,rgba(0,20,60,.94) 0%,rgba(0,45,130,.82) 45%,rgba(0,55,158,.45) 100%),url('${ASSET.foto}')"><div class="lg-top">${MARCA('xl')}</div>
  <div class="lg-hero"><span class="lg-chip">${ic('shield')} Segurança do Trabalho · ${h(S.cfg.unidade||'')}</span><h1>Segurança<br>em Campo</h1><p>${sub}</p>
- <ul><li>${ic('clip')}Inspeção de Campo, IPS, Cartão Comportamental e Relato de Desvios</li><li>${ic('wifi')}Funciona sem internet — envia sozinho quando houver sinal</li><li>${ic('chart')}Painel gerencial, metas e ranking em tempo real</li></ul></div>
+ <ul><li>${ic('clip')}Inspeção de Campo, IPS, Cartão Comportamental, Relato de Desvios e Orientação de Segurança</li><li>${ic('wifi')}Funciona sem internet — envia sozinho quando houver sinal</li><li>${ic('chart')}Painel gerencial, metas e ranking em tempo real</li></ul></div>
  <div class="lg-slogan">Juntos temos um mundo para construir.</div></div>`;}
 function vLogin(){
  return `<div class="lg-wrap">${brandPanel('Registre as observações de segurança direto no celular, do jeito do formulário de papel.')}
@@ -1005,6 +1014,9 @@ function minhasMetasHTML(){
 
 /* ------------------------------ Novidades (histórico de versões) ------------------------------ */
 const CHANGELOG=[
+ {v:'4.1.0',data:'2026-11-18',itens:[
+  ['shield','Orientação de Segurança','Novo documento R-01/018-09 – Processo Educacional, com assinatura do orientador e do colaborador. Não entra nas metas nem no ranking.'],
+  ['clip','Inspeção de Campo','O documento passou a se chamar só Inspeção de Campo.']]},
  {v:'4.0.0',data:'2026-11-18',itens:[
   ['grid','Visual novo','Telas redesenhadas no padrão Fagundes, no celular e no computador, com menu com nomes e barra inferior com botão de lançar.'],
   ['chart','Gráfico mais claro','Lançamentos por dia com escala, linha da meta, média, resumo do período e detalhe ao tocar na coluna.'],
@@ -1361,7 +1373,7 @@ function chartColunas(bk,series,op={}){
  const uteis=bk.map((b,i)=>metas[i]>0),nUteis=uteis.filter(Boolean).length,naMeta=tot.filter((t,i)=>uteis[i]&&t>=metas[i]).length;
  const melhor=tot.reduce((bi,v,i)=>v>tot[bi]?i:bi,0);
  const passo=Math.max(1,Math.ceil(n/(innerWidth<640?10:22)));
- const claro=hx=>/s2|s3/.test(hx);
+ const claro=hx=>/s2|s3/.test(hx)||(/s5/.test(hx)&&S.tema==='escuro');
  const metaFmt=v=>fmtN(v,v%1?1:0);
  const res=`<div class="c4-res"><div><span>Total no período</span><b>${soma}</b></div><div><span>Média por ${diario?'dia':'semana'}</span><b>${fmtN(med,1)}</b></div>${temMeta?`<div><span>${diario?'Dias na meta':'Semanas na meta'}</span><b>${naMeta} de ${nUteis}</b></div>`:''}<div><span>Melhor ${diario?'dia':'semana'}</span><b>${tot[melhor]?`${bk[melhor].label} · ${tot[melhor]}`:'—'}</b></div></div>`;
  const tog=series.length>1?`<div class="seg2"><button class="${total?'':'at'}" data-act="cmodo" data-m="doc">Por documento</button><button class="${total?'at':''}" data-act="cmodo" data-m="total">Total</button></div>`:'';
@@ -1369,7 +1381,7 @@ function chartColunas(bk,series,op={}){
  const grid=[.25,.5,.75,1].map(f=>`<i style="bottom:${f*100}%"></i>`).join('');
  const mLine=temMeta?(diario?`<div class="c4-meta" style="bottom:${metaRef/mx*100}%"><span>Meta ${metaFmt(metaRef)}</span></div>`:`<div class="c4-meta" style="bottom:${metaRef/mx*100}%"><span>Meta ${metaFmt(metaRef)}</span></div>`):'';
  const cols=bk.map((b,i)=>{const t=tot[i],vis=ser.map((s,k)=>({v:s.vals[i],hx:s.hex,nm:s.nome})).filter(x=>x.v);
-  const segs=vis.map((x,j)=>`<i class="${claro(x.hx)?'cl':''}" style="flex:${x.v} 1 0;background:${x.hx}">${x.v/mx*H>=15&&n<=40?x.v:''}</i>`).join('');
+  const segs=vis.map((x,j)=>`<i class="${claro(x.hx)?'cl':''}" style="flex:${x.v} 1 0;background:${x.hx}">${ser.length>1&&x.v/mx*H>=15&&n<=40?x.v:''}</i>`).join('');
   const st=metas[i]>0?(t>=metas[i]?'<br><span style=color:#b9ec5c>Bateu a meta do dia</span>':`<br><span style=color:#ffc9c2>Faltaram ${metaFmt(Math.max(0,metas[i]-t))} para a meta</span>`):'';
   const tipH=`<b>${diario?DS[wd(b)]+', ':''}${b.tip}</b>`+series.map(s=>`<br><i style='display:inline-block;width:9px;height:9px;border-radius:2px;background:${s.hex}'></i> ${s.nome}: <b>${s.vals[i]}</b>`).join('')+`<br>Total: <b>${t}</b>${st}`;
   return `<div class="c4-col${diario&&wd(b)===0?' fds':''}" data-tip="${h(tipH)}"><div class="c4-st" style="height:${t/mx*100}%">${t?`<em class="${metas[i]>0&&t>=metas[i]?'ok':''}">${t}</em>`:''}${segs}</div>${t?'':'<b class="c4-z">0</b>'}</div>`;}).join('');
@@ -1377,7 +1389,7 @@ function chartColunas(bk,series,op={}){
  return `<div class="c4"><div class="c4-top">${res}${tog}</div>
  <div class="c4-wrap"><div class="c4-y" style="height:${H}px">${ticks}</div><div class="c4-pl" style="height:${H}px"><div class="c4-g">${grid}</div>${mLine}<div class="c4-med" style="bottom:${med/mx*100}%"><span>Média ${fmtN(med,1)}</span></div><div class="c4-cols">${cols}</div></div></div>
  <div class="c4-x">${xl}</div>
- <div class="c4-nota">${temMeta?`Meta da equipe ${diario?'por dia: meta mensal de todos os lançadores ÷ dias de segunda a sábado':'por semana: soma das metas semanais'}. `:'Cadastre as metas para ver a linha da meta. '}Toque numa coluna para ver o detalhe.</div></div>`;}
+ <div class="c4-nota">${temMeta?`Meta da equipe ${diario?'por dia: meta mensal de todos os lançadores ÷ dias de segunda a sábado':'por semana: soma das metas semanais'}. `:(tipo&&DOCS[tipo]&&DOCS[tipo].semMeta?'Documento sem meta. ':'Cadastre as metas para ver a linha da meta. ')}Toque numa coluna para ver o detalhe.</div></div>`;}
 function chartLinhaIPS(pts){
  if(!pts.length)return `<div class="vazio" style="padding:20px">Sem IPS no período</div>`;
  const W=600,H=210,L=34,R=92,T=10,B=24,vals=pts.map(p=>p.v),mn=Math.max(0,Math.min(70,Math.floor((Math.min(...vals)-5)/10)*10));
@@ -1425,7 +1437,7 @@ function vPainel(){
  if(!S.central)return filtrosHTML()+tabs+semDados();
  const [pa,pb]=periodoAnterior(a,b),tipo=S.ptipo==='GERAL'?'':S.ptipo;
  const ctx={a,b,tipo,regs:filtrados(a,b,tipo),prev:filtrados(pa,pb,tipo),B:buckets(a,b)};
- return filtrosHTML()+tabs+({GERAL:pGeral,INSPECAO:pInspecao,IPS:pIPS,COC:pCOC,RELATO:pRelato}[S.ptipo]||pGeral)(ctx);}
+ return filtrosHTML()+tabs+({GERAL:pGeral,INSPECAO:pInspecao,IPS:pIPS,COC:pCOC,RELATO:pRelato,ORIENTACAO:pOrientacao}[S.ptipo]||pGeral)(ctx);}
 function tabelaAcoes(lst,max=8){return `<div class="tbw"><table class="tb"><tr><th>Situação</th><th>Ação</th><th>Responsável</th><th>Prazo</th></tr>${lst.slice(0,max).map(x=>`<tr class="cl" data-act="ver" data-id="${x.r.id}" data-r="1"><td><span class="st ${x.st.k}">${x.st.lab}</span></td><td>${h(x.ac.oque)}<div class="tiny">${h(x.ac.local)}</div></td><td>${h(String(x.ac.resp||'—').split(' – ')[0])}</td><td>${fData(x.ac.prazo)||'—'}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">Nenhuma ação</td></tr>'}</table></div>`;}
 const ordAc=(x,y)=>({vencida:0,aberta:1,concluida:2}[x.st.k]-{vencida:0,aberta:1,concluida:2}[y.st.k])||String(x.ac.prazo||'9').localeCompare(String(y.ac.prazo||'9'));
 /* ---- Visão geral ---- */
@@ -1540,13 +1552,32 @@ function pRelato({regs,prev,B}){
   <div class="card c12 p0"><div class="ch-t" style="padding:14px 16px 0"><b>Relatos recentes</b></div><div class="tbw"><table class="tb"><tr><th>Data</th><th>Tipo</th><th>Local</th><th>Descrição</th><th>Medida</th><th>Relator</th></tr>
    ${regs.slice().sort((x,y)=>y.c-x.c).slice(0,15).map(r=>{const a=ac.find(x=>x.r.id===r.id);return `<tr class="cl" data-act="ver" data-id="${r.id}" data-r="1"><td>${fData(r.d)}</td><td>${h((r.dados.tipos||[]).join(', '))}</td><td>${h(r.dados.local)}</td><td>${h(r.dados.descricao)}</td><td>${a?`<span class="st ${a.st.k}">${a.st.lab}</span>`:'<span class="tiny">sem medida</span>'}</td><td>${h(r.nome)}</td></tr>`;}).join('')||'<tr><td colspan="6" class="muted">Sem relatos no período</td></tr>'}</table></div></div></div>`;}
 
+function pOrientacao({regs,prev,B}){
+ const nomeDe=r=>String(r.dados.colaborador||'').split(' – ')[0].trim()||'(sem nome)';
+ const por={};regs.forEach(r=>{const k=nomeDe(r);por[k]=(por[k]||0)+1;});
+ const reinc=Object.entries(por).filter(([,v])=>v>=2).sort((x,y)=>y[1]-x[1]);
+ const cnt=f=>{const o={};regs.forEach(r=>{const k=String(f(r)||'').trim();if(k)o[k]=(o[k]||0)+1;});return Object.entries(o).map(([l,v])=>({l,v})).sort((x,y)=>y.v-x.v);};
+ const turno={};regs.forEach(r=>{const t=r.turno||'—';turno[t]=(turno[t]||0)+1;});
+ return `<div class="info" style="margin-bottom:12px">${ic('shield')} A Orientação de Segurança não tem meta: ela registra o comportamento de risco constatado e a orientação dada ao colaborador.</div>
+ <div class="kpis">
+  ${kpi('shield','Orientações registradas',regs.length,delta(regs.length,prev.length||null),DOCS.ORIENTACAO.hex)}
+  ${kpi('users','Colaboradores orientados',Object.keys(por).length,'pessoas diferentes no período')}
+  ${kpi('alert','Reincidentes',reinc.length,reinc.length?'orientados 2 vezes ou mais no período':'nenhuma reincidência','#c93434',reinc.length?'var(--err)':'')}
+  ${kpi('user','Quem mais orientou',(cnt(r=>String(r.dados.orientador||'').split(' – ')[0])[0]||{}).l||'—','')}</div>
+ <div class="grid-p">
+  <div class="card c8"><div class="ch-t"><b>Orientações por ${B.sem?'semana':'dia'}</b></div>${chartColunas(B.bk,serieUnica(regs,B,'Orientações',DOCS.ORIENTACAO.hex),{tipo:'ORIENTACAO'})}</div>
+  <div class="card c4"><div class="ch-t"><b>Reincidentes</b><span class="tiny">2 ou mais no período</span></div>${chartBarrasH(reinc.slice(0,8).map(([l,v])=>({l,v})),'#c93434')}
+   <div class="ch-t" style="margin-top:18px"><b>Por turno</b></div>${chartBarrasH(Object.entries(turno).sort().map(([t,v])=>({l:'Turno '+t,v})),'#00379e')}</div>
+  <div class="card c12 p0"><div class="ch-t" style="padding:14px 16px 0"><b>Orientações recentes</b></div><div class="tbw"><table class="tb"><tr><th>Data</th><th>Colaborador</th><th>Situação</th><th>Orientação</th><th>Orientado por</th></tr>
+   ${regs.slice().sort((x,y)=>y.c-x.c).slice(0,20).map(r=>`<tr class="cl" data-act="ver" data-id="${r.id}" data-r="1"><td>${fData(r.d)}</td><td><b>${h(nomeDe(r))}</b>${(por[nomeDe(r)]||0)>=2?' <span class="st rejeitado">reincidente</span>':''}</td><td>${h(r.dados.situacao)}</td><td>${h(r.dados.orientacao)}</td><td>${h(String(r.dados.orientador||'').split(' – ')[0])}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">Sem orientações no período</td></tr>'}</table></div></div></div>`;}
+
 /* ------------------------------ Ranking ------------------------------ */
 const RKPERS=[['sem','Semana atual'],['semAnt','Semana anterior'],['ciclo','Mês atual'],['cicloAnt','Mês anterior']];
 function rankData(per,turno){
  const [a,b]=per==='sem'?semana(0):per==='semAnt'?semana(-1):periodo(per),chave=per.startsWith('sem')?'sem':'men';
  const cad=(S.central&&S.central.cadastro||S.cadastro).filter(p=>p.ativo!==false&&p.matricula!=='admin');
  const real={};docsDoServidor().forEach(r=>{if(r.d<a||r.d>b)return;const o=real[r.m]=real[r.m]||{};o[r.tipo]=(o[r.tipo]||0)+1;});
- const linhas=cad.map(p=>{const m=metaDe(p),meta=m?(m[chave]||{}):{},rr=real[p.matricula]||{},tot=TIPOS.reduce((s,t)=>s+(rr[t]||0),0),mt=somaMeta(meta);
+ const linhas=cad.map(p=>{const m=metaDe(p),meta=m?(m[chave]||{}):{},rr=real[p.matricula]||{},tot=TIPOS_META.reduce((s,t)=>s+(rr[t]||0),0),mt=somaMeta(meta);
   return {p,meta,real:rr,tot,mt,at:mt?atingimento(rr,meta):null,origem:m?m.origem:'—'};}).filter(l=>(l.mt||l.tot)&&(!turno||l.p.turno===turno));
  linhas.sort((x,y)=>(y.at??-1)-(x.at??-1)||y.tot-x.tot||x.p.nome.localeCompare(y.p.nome));linhas.forEach((l,i)=>l.pos=i+1);
  return {linhas,a,b,chave};}
@@ -1563,13 +1594,13 @@ function vRanking(){
   <button class="btn sec sm" data-act="nav" data-to="metas">${ic('target')} Metas</button><button class="btn sm" data-act="central-atualizar">${ic('sync')} Atualizar</button></div>
  <div class="kpis">${kpi('target','Atingimento geral',sm?fmtN(sr/sm*100,0)+'%':'—',`${Math.round(sr)} de ${sm} lançamentos da meta`)}${kpi('trophy','Bateram a meta',bat,`de ${cm.length} colaborador(es) com meta`,'#1f8f3a')}${kpi('alert','Abaixo de 50%',baixo,'precisam de acompanhamento','#c93434',baixo?'var(--err)':'')}${kpi('doc','Lançamentos no período',L.reduce((s,l)=>s+l.tot,0),'')}</div>
  ${top.length?`<div class="podio">${ordem.map(l=>`<div class="pd pd${l.pos}"><div class="pd-av"><span class="av">${iniciais(l.p.nome)}</span><span class="med">${l.pos}º</span></div><b>${h(l.p.nome)}</b><div class="tiny">${h(l.p.funcao)} · Turno ${h(l.p.turno)}</div><div class="pd-v">${l.at==null?l.tot+' lanç.':fmtN(l.at,0)+'%'}</div><div class="tiny">${l.tot}${l.mt?'/'+l.mt:''} lançamentos</div><div class="pd-base">${l.pos}</div></div>`).join('')}</div>`:''}
- <div class="grid-p"><div class="card c8 p0"><div class="ch-t" style="padding:14px 16px 0"><b>Classificação completa</b><span class="tiny">ordem: % da meta, depois total</span></div><div class="tbw" style="max-height:none"><table class="tb rk"><tr><th>#</th><th>Colaborador</th>${TIPOS.map(t=>`<th class="n">${DOCS[t].sigla}</th>`).join('')}<th style="min-width:130px">Atingimento</th><th>Situação</th></tr>
-  ${L.map(l=>`<tr><td><span class="pos p${l.pos}">${l.pos}</span></td><td><b>${h(l.p.nome)}</b><div class="tiny">${h(l.p.funcao)} · Turno ${h(l.p.turno)} · meta ${h(l.origem)}</div></td>${TIPOS.map(t=>{const r=l.real[t]||0,mt=+l.meta[t]||0;return `<td class="n ${mt&&r>=mt?'okc':''}">${r}${mt?`<span class="tiny">/${mt}</span>`:''}</td>`;}).join('')}<td><div class="pbar"><i style="width:${Math.min(100,l.at||0)}%;background:${(l.at||0)>=100?'#1f8f3a':'#00379e'}"></i></div><div class="tiny"><b>${l.at==null?'—':fmtN(l.at,0)+'%'}</b> · ${l.tot}${l.mt?'/'+l.mt:''}</div></td><td>${sit(l.at)}</td></tr>`).join('')||'<tr><td colspan="8" class="muted" style="padding:20px">Ninguém com meta ou lançamento no período.</td></tr>'}</table></div></div>
+ <div class="grid-p"><div class="card c8 p0"><div class="ch-t" style="padding:14px 16px 0"><b>Classificação completa</b><span class="tiny">ordem: % da meta, depois total</span></div><div class="tbw" style="max-height:none"><table class="tb rk"><tr><th>#</th><th>Colaborador</th>${TIPOS_META.map(t=>`<th class="n">${DOCS[t].sigla}</th>`).join('')}<th style="min-width:130px">Atingimento</th><th>Situação</th></tr>
+  ${L.map(l=>`<tr><td><span class="pos p${l.pos}">${l.pos}</span></td><td><b>${h(l.p.nome)}</b><div class="tiny">${h(l.p.funcao)} · Turno ${h(l.p.turno)} · meta ${h(l.origem)}</div></td>${TIPOS_META.map(t=>{const r=l.real[t]||0,mt=+l.meta[t]||0;return `<td class="n ${mt&&r>=mt?'okc':''}">${r}${mt?`<span class="tiny">/${mt}</span>`:''}</td>`;}).join('')}<td><div class="pbar"><i style="width:${Math.min(100,l.at||0)}%;background:${(l.at||0)>=100?'#1f8f3a':'#00379e'}"></i></div><div class="tiny"><b>${l.at==null?'—':fmtN(l.at,0)+'%'}</b> · ${l.tot}${l.mt?'/'+l.mt:''}</div></td><td>${sit(l.at)}</td></tr>`).join('')||'<tr><td colspan="8" class="muted" style="padding:20px">Ninguém com meta ou lançamento no período.</td></tr>'}</table></div></div>
  <div class="card c4"><div class="ch-t"><b>Ranking por turno</b><span class="tiny">% da meta da equipe</span></div>${chartBarrasH(Object.entries(turnos).map(([t,o])=>({l:'Turno '+t,v:Math.round(o.r/o.m*100),tip:`${Math.round(o.r)} de ${o.m} lançamentos da meta · ${o.n} pessoa(s)`})).sort((x,y)=>y.v-x.v),'#00379e',100)}
   <div class="info" style="margin-top:16px;margin-bottom:0;font-size:12.5px">O atingimento conta, em cada documento, no máximo a quantidade da meta (lançar 10 IPS não compensa 0 Inspeções). Semana = segunda a domingo. Mês = mês do calendário (dia 1 ao último dia).</div></div></div>`;}
 
 /* ------------------------------ Metas (cadastro) ------------------------------ */
-function gradeMeta(g,k,o){return `<table class="tb mt"><tr><th>Documento</th><th class="n">Semanal</th><th class="n">Mensal</th></tr>${TIPOS.map(t=>`<tr><td><span class="dotc" style="background:${DOCS[t].hex}"></span>${DOCS[t].curto}</td>${['sem','men'].map(per=>`<td class="n"><input type="number" min="0" inputmode="numeric" class="minp" data-mg="${g}" data-mk="${h(k)}" data-mp="${per}" data-mt="${t}" value="${(o&&o[per]&&o[per][t])||''}" placeholder="0"></td>`).join('')}</tr>`).join('')}
+function gradeMeta(g,k,o){return `<table class="tb mt"><tr><th>Documento</th><th class="n">Semanal</th><th class="n">Mensal</th></tr>${TIPOS_META.map(t=>`<tr><td><span class="dotc" style="background:${DOCS[t].hex}"></span>${DOCS[t].curto}</td>${['sem','men'].map(per=>`<td class="n"><input type="number" min="0" inputmode="numeric" class="minp" data-mg="${g}" data-mk="${h(k)}" data-mp="${per}" data-mt="${t}" value="${(o&&o[per]&&o[per][t])||''}" placeholder="0"></td>`).join('')}</tr>`).join('')}
  <tr class="tt"><td>Total</td><td class="n">${somaMeta(o&&o.sem)}</td><td class="n">${somaMeta(o&&o.men)}</td></tr></table>`;}
 function vMetas(){
  if(!S.metasEdit)S.metasEdit=JSON.parse(JSON.stringify(S.metas||METAS_VAZIA()));
@@ -1593,7 +1624,7 @@ async function salvarMetas(){
  const E=S.metasEdit;const limpa=o=>{['sem','men'].forEach(p=>{o[p]=o[p]||{};TIPOS.forEach(t=>{const v=+o[p][t]||0;if(v)o[p][t]=v;else delete o[p][t];});});return o;};
  limpa(E.padrao);Object.values(E.funcoes).forEach(limpa);Object.values(E.pessoas).forEach(limpa);E.atualizadoEm=Date.now();E.por=S.user.nome;
  const rec={id:uuid(),tipo:'METAS',status:'pendente',deviceId:S.deviceId,criadoEm:Date.now(),autor:{matricula:S.user.matricula,nome:S.user.nome,funcao:S.user.funcao,turno:S.user.turno},dados:E,resumo:'Atualização de metas',dataDoc:hoje(),auth:S.auth};
- const linha=(g,k,o)=>({'Atualizado em':new Date().toISOString(),'Por':S.user.nome,'Tipo de meta':g,'Função / Colaborador':k,...Object.fromEntries(TIPOS.flatMap(t=>[[`${DOCS[t].sigla} semanal`,(o.sem||{})[t]||0],[`${DOCS[t].sigla} mensal`,(o.men||{})[t]||0]]))});
+ const linha=(g,k,o)=>({'Atualizado em':new Date().toISOString(),'Por':S.user.nome,'Tipo de meta':g,'Função / Colaborador':k,...Object.fromEntries(TIPOS_META.flatMap(t=>[[`${DOCS[t].sigla} semanal`,(o.sem||{})[t]||0],[`${DOCS[t].sigla} mensal`,(o.men||{})[t]||0]]))});
  rec.planilhas={'Metas':[linha('Padrão','Todos',E.padrao),...Object.entries(E.funcoes).map(([f,o])=>linha('Função',f,o)),...Object.entries(E.pessoas).map(([m,o])=>linha('Individual',m,o))]};
  await novoRegistro(rec,'MET');await recarregarRegs();S.metas=JSON.parse(JSON.stringify(E));await setMeta('metas',S.metas);S.metasEdit=null;toast('Metas salvas','ok');render();sincronizar();}
 
